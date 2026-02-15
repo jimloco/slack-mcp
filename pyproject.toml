@@ -1,0 +1,52 @@
+[tool.poetry]
+name = "slack-mcp"
+version = "0.1.0"
+description = "MCP server providing comprehensive Slack API access for AI assistants"
+authors = ["Jim Hull"]
+readme = "README.md"
+packages = [{include = "slack_mcp"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+slack-sdk = "^3.27.0"
+mcp = "^1.0.0"
+anyio = "^4.0.0"
+python-dotenv = "^1.0.0"
+aiohttp = "^3.9.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+pytest-asyncio = "^0.23.0"
+pytest-mock = "^3.12.0"
+pylint = "^3.0.0"
+mypy = "^1.8.0"
+bandit = "^1.7.0"
+black = "^24.0.0"
+pip-audit = "^2.6.0"
+
+[tool.poetry.scripts]
+start-mcp = "slack_mcp.__main__:run_main"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=slack_mcp --cov-report=html --cov-report=term"
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

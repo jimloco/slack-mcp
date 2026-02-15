@@ -1,0 +1,4 @@
+[bandit]
+exclude_dirs = ["tests", "venv", ".venv", ".tox"]
+# No skips without explicit security review
+skips = []

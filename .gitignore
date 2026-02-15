@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Slack MCP - Workspace configurations (contain OAuth tokens)
+# Note: Config files are in ~/.config/slack-mcp/, not in repo
+# Just ensuring no accidental commits of config files
+*config*.json
+workspace*.json
