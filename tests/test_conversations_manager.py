@@ -209,3 +209,188 @@ class TestConversationsManager:
         """Test archiving with empty channel ID."""
         with pytest.raises(SlackClientError, match="Channel ID is required"):
             await conversations_manager.archive_channel("")
+
+    @pytest.mark.asyncio
+    async def test_get_history_success(
+        self, conversations_manager: ConversationsManager, mock_client: Mock
+    ) -> None:
+        """Test successful conversation history retrieval."""
+        mock_client.call_api.return_value = {
+            "ok": True,
+            "messages": [
+                {"type": "message", "text": "Hello", "user": "U123", "ts": "1234567890.123456"},
+                {"type": "message", "text": "Hi", "user": "U456", "ts": "1234567891.123456"},
+            ],
+            "has_more": False,
+            "response_metadata": {},
+        }
+
+        result = await conversations_manager.get_history("C123", limit=100)
+
+        assert result["ok"] is True
+        assert len(result["messages"]) == 2
+        assert result["messages"][0]["text"] == "Hello"
+        assert result["has_more"] is False
+        mock_client.call_api.assert_called_once_with(
+            "conversations.history",
+            channel="C123",
+            limit=100,
+            inclusive=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_history_with_timestamps(
+        self, conversations_manager: ConversationsManager, mock_client: Mock
+    ) -> None:
+        """Test conversation history with oldest/latest timestamps."""
+        mock_client.call_api.return_value = {
+            "ok": True,
+            "messages": [{"type": "message", "text": "Test", "ts": "1234567890.123456"}],
+            "has_more": False,
+            "response_metadata": {},
+        }
+
+        result = await conversations_manager.get_history(
+            "C123", limit=50, oldest="1234567800.000000", latest="1234567900.000000", inclusive=True
+        )
+
+        assert result["ok"] is True
+        assert len(result["messages"]) == 1
+        mock_client.call_api.assert_called_once_with(
+            "conversations.history",
+            channel="C123",
+            limit=50,
+            inclusive=True,
+            oldest="1234567800.000000",
+            latest="1234567900.000000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_history_empty_channel(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_history with empty channel ID."""
+        with pytest.raises(SlackClientError, match="Channel ID is required"):
+            await conversations_manager.get_history("")
+
+    @pytest.mark.asyncio
+    async def test_get_history_invalid_channel(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_history with invalid channel ID format."""
+        with pytest.raises(SlackClientError, match="Invalid channel ID format"):
+            await conversations_manager.get_history("invalid")
+
+    @pytest.mark.asyncio
+    async def test_get_history_invalid_limit(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_history with invalid limit."""
+        with pytest.raises(SlackClientError, match="Limit must be between 1 and 1000"):
+            await conversations_manager.get_history("C123", limit=2000)
+
+    @pytest.mark.asyncio
+    async def test_get_replies_success(
+        self, conversations_manager: ConversationsManager, mock_client: Mock
+    ) -> None:
+        """Test successful thread replies retrieval."""
+        mock_client.call_api.return_value = {
+            "ok": True,
+            "messages": [
+                {
+                    "type": "message",
+                    "text": "Parent message",
+                    "user": "U123",
+                    "ts": "1234567890.123456",
+                    "thread_ts": "1234567890.123456",
+                },
+                {
+                    "type": "message",
+                    "text": "Reply 1",
+                    "user": "U456",
+                    "ts": "1234567891.123456",
+                    "thread_ts": "1234567890.123456",
+                },
+            ],
+            "has_more": False,
+            "response_metadata": {},
+        }
+
+        result = await conversations_manager.get_replies("C123", "1234567890.123456", limit=100)
+
+        assert result["ok"] is True
+        assert len(result["messages"]) == 2
+        assert result["messages"][0]["text"] == "Parent message"
+        assert result["messages"][1]["text"] == "Reply 1"
+        mock_client.call_api.assert_called_once_with(
+            "conversations.replies",
+            channel="C123",
+            ts="1234567890.123456",
+            limit=100,
+            inclusive=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_replies_with_timestamps(
+        self, conversations_manager: ConversationsManager, mock_client: Mock
+    ) -> None:
+        """Test thread replies with oldest/latest timestamps."""
+        mock_client.call_api.return_value = {
+            "ok": True,
+            "messages": [{"type": "message", "text": "Reply", "ts": "1234567891.123456"}],
+            "has_more": False,
+            "response_metadata": {},
+        }
+
+        result = await conversations_manager.get_replies(
+            "C123",
+            "1234567890.123456",
+            limit=50,
+            oldest="1234567890.000000",
+            latest="1234567900.000000",
+            inclusive=True,
+        )
+
+        assert result["ok"] is True
+        assert len(result["messages"]) == 1
+        mock_client.call_api.assert_called_once_with(
+            "conversations.replies",
+            channel="C123",
+            ts="1234567890.123456",
+            limit=50,
+            inclusive=True,
+            oldest="1234567890.000000",
+            latest="1234567900.000000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_replies_empty_channel(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_replies with empty channel ID."""
+        with pytest.raises(SlackClientError, match="Channel ID is required"):
+            await conversations_manager.get_replies("", "1234567890.123456")
+
+    @pytest.mark.asyncio
+    async def test_get_replies_empty_thread_ts(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_replies with empty thread_ts."""
+        with pytest.raises(SlackClientError, match="Thread timestamp is required"):
+            await conversations_manager.get_replies("C123", "")
+
+    @pytest.mark.asyncio
+    async def test_get_replies_invalid_channel(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_replies with invalid channel ID format."""
+        with pytest.raises(SlackClientError, match="Invalid channel ID format"):
+            await conversations_manager.get_replies("invalid", "1234567890.123456")
+
+    @pytest.mark.asyncio
+    async def test_get_replies_invalid_limit(
+        self, conversations_manager: ConversationsManager
+    ) -> None:
+        """Test get_replies with invalid limit."""
+        with pytest.raises(SlackClientError, match="Limit must be between 1 and 1000"):
+            await conversations_manager.get_replies("C123", "1234567890.123456", limit=2000)

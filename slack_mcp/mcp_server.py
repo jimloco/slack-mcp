@@ -109,6 +109,8 @@ class SlackMCPServer:  # pylint: disable=too-many-instance-attributes
                         "Slack conversations and channel operations.\n\n"
                         "Operations:\n"
                         "- search: Search messages with query and optional filters\n"
+                        "- get_history: Read message history from a channel\n"
+                        "- get_replies: Read all replies in a thread\n"
                         "- post_message: Post message to channel or thread\n"
                         "- list_channels: List channels with optional type filters\n"
                         "- create_channel: Create a new channel\n"
@@ -122,6 +124,8 @@ class SlackMCPServer:  # pylint: disable=too-many-instance-attributes
                                 "type": "string",
                                 "enum": [
                                     "search",
+                                    "get_history",
+                                    "get_replies",
                                     "post_message",
                                     "list_channels",
                                     "create_channel",
@@ -143,7 +147,28 @@ class SlackMCPServer:  # pylint: disable=too-many-instance-attributes
                             },
                             "thread_ts": {
                                 "type": "string",
-                                "description": "Thread timestamp for replies",
+                                "description": "Thread timestamp (for get_replies, post_message)",
+                            },
+                            "oldest": {
+                                "type": "string",
+                                "description": (
+                                    "Unix timestamp - only messages after this time "
+                                    "(for get_history, get_replies)"
+                                ),
+                            },
+                            "latest": {
+                                "type": "string",
+                                "description": (
+                                    "Unix timestamp - only messages before this time "
+                                    "(for get_history, get_replies)"
+                                ),
+                            },
+                            "inclusive": {
+                                "type": "boolean",
+                                "description": (
+                                    "Include messages with oldest/latest timestamp "
+                                    "(for get_history, get_replies)"
+                                ),
                             },
                             "types": {
                                 "type": "array",
@@ -166,9 +191,12 @@ class SlackMCPServer:  # pylint: disable=too-many-instance-attributes
                             },
                             "limit": {
                                 "type": "integer",
-                                "description": "Max results",
+                                "description": (
+                                    "Max results (1-100 for search, "
+                                    "1-1000 for get_history/get_replies)"
+                                ),
                                 "minimum": 1,
-                                "maximum": 100,
+                                "maximum": 1000,
                             },
                         },
                     },
@@ -362,7 +390,7 @@ class SlackMCPServer:  # pylint: disable=too-many-instance-attributes
 
         logger.info("MCP tools registered successfully")
 
-    async def _handle_conversations(
+    async def _handle_conversations(  # pylint: disable=too-many-return-statements,too-many-branches
         self, operation: str | None, arguments: Dict[str, Any]
     ) -> List[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """Handle slack_conversations tool operations."""
@@ -382,6 +410,54 @@ class SlackMCPServer:  # pylint: disable=too-many-instance-attributes
                 types.TextContent(
                     type="text",
                     text=f"Found {len(results)} messages:\n\n{json.dumps(results, indent=2)}",
+                )
+            ]
+
+        if operation == "get_history":
+            channel = arguments.get("channel")
+            if not channel:
+                raise ValueError("get_history operation requires 'channel' parameter")
+
+            result = await conversations.get_history(
+                channel=channel,
+                limit=arguments.get("limit", 100),
+                oldest=arguments.get("oldest"),
+                latest=arguments.get("latest"),
+                inclusive=arguments.get("inclusive", False),
+            )
+            return [
+                types.TextContent(
+                    type="text",
+                    text=(
+                        f"Retrieved {len(result['messages'])} messages from channel {channel}:\n\n"
+                        f"{json.dumps(result, indent=2)}"
+                    ),
+                )
+            ]
+
+        if operation == "get_replies":
+            channel = arguments.get("channel")
+            thread_ts = arguments.get("thread_ts")
+            if not channel or not thread_ts:
+                raise ValueError(
+                    "get_replies operation requires 'channel' and 'thread_ts' parameters"
+                )
+
+            result = await conversations.get_replies(
+                channel=channel,
+                thread_ts=thread_ts,
+                limit=arguments.get("limit", 100),
+                oldest=arguments.get("oldest"),
+                latest=arguments.get("latest"),
+                inclusive=arguments.get("inclusive", False),
+            )
+            return [
+                types.TextContent(
+                    type="text",
+                    text=(
+                        f"Retrieved {len(result['messages'])} replies from thread {thread_ts}:\n\n"
+                        f"{json.dumps(result, indent=2)}"
+                    ),
                 )
             ]
 

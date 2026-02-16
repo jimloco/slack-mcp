@@ -17,6 +17,8 @@ A Model Context Protocol (MCP) server that provides AI assistants with comprehen
 
 **slack_conversations** - Comprehensive message and channel operations
 - Search messages across channels with filters
+- Read conversation history from channels chronologically
+- Read all replies in a thread
 - Post messages to channels/DMs with Slack markdown
 - Reply to threads maintaining conversation context
 - List, create, and archive channels
@@ -212,6 +214,30 @@ slack_conversations(
   operation='search',
   query='from:@sarah project deadline',
   channel='C01234567'
+)
+```
+
+### Read Channel History
+
+```python
+slack_conversations(
+  operation='get_history',
+  channel='C01234567',
+  limit=100,
+  oldest='1234567890.123456',  # optional: Unix timestamp
+  latest='1234567900.123456',  # optional: Unix timestamp
+  inclusive=False              # optional: include oldest/latest timestamps
+)
+```
+
+### Read Thread Replies
+
+```python
+slack_conversations(
+  operation='get_replies',
+  channel='C01234567',
+  thread_ts='1234567890.123456',
+  limit=100
 )
 ```
 

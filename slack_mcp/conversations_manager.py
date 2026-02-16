@@ -249,3 +249,128 @@ class ConversationsManager:
 
         logger.info("Archived channel: %s", channel)
         return cast(bool, response["ok"])
+
+    async def get_history(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        channel: str,
+        limit: int = 100,
+        oldest: Optional[str] = None,
+        latest: Optional[str] = None,
+        inclusive: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Read message history from a channel.
+
+        Args:
+            channel: Channel ID to read from
+            limit: Maximum number of messages (default 100, max 1000)
+            oldest: Only messages after this Unix timestamp (inclusive if inclusive=True)
+            latest: Only messages before this Unix timestamp (inclusive if inclusive=True)
+            inclusive: Include messages with latest or oldest timestamp
+
+        Returns:
+            Dictionary containing messages array and response metadata
+
+        Raises:
+            SlackClientError: If reading fails
+        """
+        if not channel:
+            raise SlackClientError("Channel ID is required")
+
+        if limit < 1 or limit > 1000:
+            raise SlackClientError("Limit must be between 1 and 1000")
+
+        # Validate channel ID format
+        if not channel[0] in ["C", "G", "D"]:
+            raise SlackClientError("Invalid channel ID format - must start with C, G, or D")
+
+        kwargs: Dict[str, Any] = {
+            "channel": channel,
+            "limit": limit,
+            "inclusive": inclusive,
+        }
+
+        if oldest:
+            kwargs["oldest"] = oldest
+        if latest:
+            kwargs["latest"] = latest
+
+        response = await self.client.call_api("conversations.history", **kwargs)
+
+        result = {
+            "ok": response["ok"],
+            "messages": response.get("messages", []),
+            "has_more": response.get("has_more", False),
+            "response_metadata": response.get("response_metadata", {}),
+        }
+
+        logger.info("Retrieved %d messages from channel %s", len(result["messages"]), channel)
+        return result
+
+    async def get_replies(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        channel: str,
+        thread_ts: str,
+        limit: int = 100,
+        oldest: Optional[str] = None,
+        latest: Optional[str] = None,
+        inclusive: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Read replies from a thread.
+
+        Args:
+            channel: Channel ID containing the thread
+            thread_ts: Timestamp of the parent message
+            limit: Maximum number of replies (default 100, max 1000)
+            oldest: Only messages after this Unix timestamp (inclusive if inclusive=True)
+            latest: Only messages before this Unix timestamp (inclusive if inclusive=True)
+            inclusive: Include messages with latest or oldest timestamp
+
+        Returns:
+            Dictionary containing messages array (includes parent) and response metadata
+
+        Raises:
+            SlackClientError: If reading fails
+        """
+        if not channel:
+            raise SlackClientError("Channel ID is required")
+
+        if not thread_ts:
+            raise SlackClientError("Thread timestamp is required")
+
+        if limit < 1 or limit > 1000:
+            raise SlackClientError("Limit must be between 1 and 1000")
+
+        # Validate channel ID format
+        if not channel[0] in ["C", "G", "D"]:
+            raise SlackClientError("Invalid channel ID format - must start with C, G, or D")
+
+        kwargs: Dict[str, Any] = {
+            "channel": channel,
+            "ts": thread_ts,
+            "limit": limit,
+            "inclusive": inclusive,
+        }
+
+        if oldest:
+            kwargs["oldest"] = oldest
+        if latest:
+            kwargs["latest"] = latest
+
+        response = await self.client.call_api("conversations.replies", **kwargs)
+
+        result = {
+            "ok": response["ok"],
+            "messages": response.get("messages", []),
+            "has_more": response.get("has_more", False),
+            "response_metadata": response.get("response_metadata", {}),
+        }
+
+        logger.info(
+            "Retrieved %d replies from thread %s in channel %s",
+            len(result["messages"]),
+            thread_ts,
+            channel,
+        )
+        return result
